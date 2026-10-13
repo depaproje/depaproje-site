@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Yönetim Paneli | DEPA Proje</title>
+<link rel="icon" href="favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>body{background:var(--mist)}.top{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}.top .wrap{display:flex;justify-content:space-between;align-items:center;height:64px}.top img{height:36px}small.h{display:block;color:var(--muted);font-size:13px;margin-top:4px;font-weight:500}textarea{resize:vertical}</style>
+</head>
+<body>
+<div class="top"><div class="wrap"><img src="logo.png" alt="DEPA Proje"><div style="display:flex;gap:10px"><a class="btn btn-ln btn-sm" href="index.html" target="_blank">Siteyi gör</a><button class="btn btn-dark btn-sm" id="out" hidden>Çıkış yap</button></div></div></div>
+
+<div class="adm" id="login" style="max-width:440px">
+  <div class="box"><h2 id="lt">Yönetim paneli</h2>
+    <p id="lhint" hidden style="color:var(--muted);font-size:14.5px;margin-bottom:16px">Bu panel için bir şifre belirleyin (en az 8 karakter). Bu ekranı yalnızca ilk girişte göreceksiniz. Şifreyi hemen siz belirleyin ve kimseyle paylaşmayın.</p>
+    <label for="pw">Şifre</label><input type="password" id="pw" autocomplete="current-password">
+    <div id="p2row" hidden style="margin-top:14px"><label for="pw2">Şifre (tekrar)</label><input type="password" id="pw2" autocomplete="new-password"></div>
+    <div class="acts"><button class="btn btn-gold" id="go">Giriş yap</button><span class="msg err" id="lm"></span></div>
+  </div>
+</div>
+
+<div class="adm" id="panel" hidden>
+  <div class="tabs" id="tabs">
+    <button data-t="p" aria-pressed="true">Projeler</button>
+    <button data-t="h" aria-pressed="false">Ana sayfa ve Hakkımızda</button>
+    <button data-t="s" aria-pressed="false">Hizmetler</button>
+    <button data-t="r" aria-pressed="false">Referanslar</button>
+    <button data-t="c" aria-pressed="false">İletişim</button>
+  </div>
+
+  <div id="tab-p">
+    <div class="box">
+      <h2 id="ft">Yeni proje ekle</h2>
+      <div class="fg">
+        <div class="full"><label for="t">Proje adı</label><input id="t" maxlength="120" placeholder="Örn. Meram Konutları Deprem Performans Analizi"></div>
+        <div><label for="c">Kategori</label><select id="c"></select></div>
+        <div><label for="s">Durum</label><select id="s"><option>Tamamlandı</option><option>Devam ediyor</option></select></div>
+        <div><label for="l">Konum</label><input id="l" maxlength="80" placeholder="Örn. Selçuklu, Konya"></div>
+        <div><label for="y">Yıl</label><input id="y" maxlength="4" inputmode="numeric" placeholder="2026"></div>
+        <div class="full"><label for="a">Alan / kat bilgisi</label><input id="a" maxlength="60" placeholder="Örn. 5 katlı, 1.200 m²"></div>
+        <div class="full"><label for="d">Açıklama</label><textarea id="d" rows="4" maxlength="2000" placeholder="İşin kısa özeti"></textarea></div>
+        <div class="full"><label for="sc">Yapılan işler</label><textarea id="sc" rows="4" placeholder="Her satıra bir madde yazın&#10;Örn. Karot ve donatı tespiti&#10;Performans analizi ve raporlama"></textarea></div>
+        <div class="full"><label>Fotoğraflar</label>
+          <div class="drop" id="drop" tabindex="0" role="button">Fotoğrafları buraya sürükleyin veya seçmek için tıklayın<br><small>En fazla 12 fotoğraf. İlk fotoğraf kapak olur. Otomatik küçültülür.</small></div>
+          <input type="file" id="f" accept="image/*" multiple hidden>
+          <div class="th" id="th"></div>
+        </div>
+      </div>
+      <div class="acts"><button class="btn btn-gold" id="save">Projeyi kaydet</button><button class="btn btn-ln" id="cancel" hidden>Vazgeç</button><span class="msg" id="m"></span></div>
+    </div>
+    <div class="box"><h2>Projeler</h2><div id="list"></div></div>
+  </div>
+
+  <div id="tab-h" hidden><div class="box" id="hbox"></div></div>
+  <div id="tab-s" hidden><div class="box" id="sbox"></div></div>
+  <div id="tab-r" hidden><div class="box" id="rbox"></div></div>
+  <div id="tab-c" hidden><div class="box" id="cbox"></div></div>
+  <div class="acts" id="csave" hidden style="position:sticky;bottom:0;background:var(--mist);padding:14px 0;margin:0"><button class="btn btn-gold" id="savec">Değişiklikleri yayınla</button><span class="msg" id="cm"></span></div>
+</div>
+
+<input type="file" id="rfile" accept="image/png,image/jpeg,image/webp" hidden>
+<script src="defaults.js"></script>
+<script>
+const CATS=["Deprem Performans Analizi","Güçlendirme","İnşaat","Proje","Restorasyon","Emlak"];
+const $=i=>document.getElementById(i);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let tok=sessionStorage.getItem("dpt")||"",projects=[],editing=null,added=[],removed=new Set(),cont=null;
+$("c").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");
+
+function merge(d,s){
+  if(Array.isArray(d))return Array.isArray(s)&&s.length?s:d;
+  if(d&&typeof d==="object"){const o={};for(const k in d)o[k]=merge(d[k],s&&s[k]);return o}
+  return typeof s==="string"?s:d;
+}
+async function api(path,opt={}){
+  const r=await fetch("/api/"+path,{...opt,headers:{"content-type":"application/json","x-admin-token":tok}});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error||(r.status===404?"Sunucu fonksiyonu bulunamadı (404). Site Cloudflare Pages üzerinden, 'functions' klasörüyle yayınlanmış olmalı.":"Sunucu hatası ("+r.status+")."));
+  return d;
+}
+function say(t,ok){const m=$("m");m.textContent=t;m.className="msg "+(ok?"ok":"err")}
+let mode="login";
+async function start(){
+  if(tok){try{await api("auth/me",{method:"POST"});return showPanel()}catch(e){tok="";sessionStorage.removeItem("dpt")}}
+  try{const s=await api("auth/status");mode=s.configured?"login":"setup"}catch(e){$("lm").textContent=e.message;return}
+  const su=mode==="setup";
+  $("lt").textContent=su?"İlk kurulum: şifre belirleyin":"Yönetim paneli";
+  $("p2row").hidden=!su;$("lhint").hidden=!su;$("go").textContent=su?"Şifreyi belirle ve gir":"Giriş yap";
+  $("pw").autocomplete=su?"new-password":"current-password";
+}
+async function showPanel(){
+  $("login").hidden=true;$("panel").hidden=false;$("out").hidden=false;refresh();
+  const saved=await (await fetch("/api/content")).json().catch(()=>null);
+  cont=merge(DEFAULTS,saved);drawContent();
+}
+$("go").onclick=async()=>{
+  const p=$("pw").value;$("lm").textContent="";
+  if(mode==="setup"){
+    if(p.length<8){$("lm").textContent="Şifre en az 8 karakter olmalı.";return}
+    if(p!==$("pw2").value){$("lm").textContent="İki şifre aynı değil.";return}
+  }
+  $("go").disabled=true;
+  try{const r=await api(mode==="setup"?"auth/setup":"auth/login",{method:"POST",body:JSON.stringify({password:p})});
+    tok=r.token;sessionStorage.setItem("dpt",tok);showPanel()}
+  catch(e){$("lm").textContent=e.message}finally{$("go").disabled=false}
+};
+$("pw").onkeydown=e=>{if(e.key==="Enter")$("go").click()};
+$("pw2").onkeydown=e=>{if(e.key==="Enter")$("go").click()};
+$("out").onclick=async()=>{try{await api("auth/logout",{method:"POST"})}catch(e){}sessionStorage.removeItem("dpt");location.reload()};
+start();
+
+/* sekmeler */
+$("tabs").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  $("tabs").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  ["p","h","s","r","c"].forEach(t=>$("tab-"+t).hidden=t!==b.dataset.t);
+  $("csave").hidden=b.dataset.t==="p";$("cm").textContent=""};
+
+/* projeler */
+async function refresh(){
+  projects=await (await fetch("/api/projects")).json();
+  $("list").innerHTML=projects.length?projects.map(p=>{const done=p.status==="Tamamlandı";return `<div class="li">${p.images[0]?`<img src="/api/img/${p.images[0]}" alt="">`:'<div class="np2"></div>'}<div class="i"><b>${esc(p.title)}</b><small>${esc(p.category)}, ${esc(p.status)}${p.year?", "+esc(p.year):""}, ${p.images.length} fotoğraf</small></div><button class="btn btn-ln btn-sm" data-st="${p.id}">${done?"Devam ediyor yap":"Tamamlandı yap"}</button><button class="btn btn-ln btn-sm" data-e="${p.id}">Düzenle</button><button class="btn btn-del btn-sm" data-d="${p.id}">Sil</button></div>`}).join(""):'<p style="color:var(--muted)">Henüz proje eklenmedi. Yukarıdaki formdan ilk projenizi ekleyin.</p>';
+}
+$("list").onclick=async e=>{
+  const {e:ed,d:del,st}=e.target.dataset;
+  if(st){const p=projects.find(x=>x.id===st);
+    try{await api("projects/"+st,{method:"PUT",body:JSON.stringify({...p,status:p.status==="Tamamlandı"?"Devam ediyor":"Tamamlandı"})});refresh()}catch(x){alert(x.message)}}
+  if(del){const p=projects.find(x=>x.id===del);if(!confirm(`"${p.title}" projesi ve fotoğrafları silinsin mi?`))return;
+    try{await api("projects/"+del,{method:"DELETE"});refresh()}catch(x){alert(x.message)}}
+  if(ed){const p=projects.find(x=>x.id===ed);editing=p;added=[];removed=new Set();
+    $("t").value=p.title;$("c").value=p.category;$("s").value=p.status;$("l").value=p.location||"";$("y").value=p.year||"";$("a").value=p.area||"";$("d").value=p.description||"";$("sc").value=(p.scope||[]).join("\n");
+    $("ft").textContent="Projeyi düzenle";$("save").textContent="Değişiklikleri kaydet";$("cancel").hidden=false;thumbs();scrollTo({top:0,behavior:"smooth"})}
+};
+function reset(){editing=null;added=[];removed=new Set();["t","l","y","a","d","sc"].forEach(i=>$(i).value="");$("c").selectedIndex=0;$("s").selectedIndex=0;
+  $("ft").textContent="Yeni proje ekle";$("save").textContent="Projeyi kaydet";$("cancel").hidden=true;thumbs()}
+$("cancel").onclick=reset;
+function thumbs(){
+  const old=editing?editing.images.map(k=>`<figure class="${removed.has(k)?"rm":""}"><img src="/api/img/${k}" alt=""><button data-r="${k}" aria-label="Fotoğrafı kaldır">×</button></figure>`):[];
+  const nw=added.map((u,i)=>`<figure><img src="${u}" alt=""><button data-a="${i}" aria-label="Fotoğrafı kaldır">×</button></figure>`);
+  $("th").innerHTML=old.concat(nw).join("");
+}
+$("th").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.r){removed.has(b.dataset.r)?removed.delete(b.dataset.r):removed.add(b.dataset.r)}
+  if(b.dataset.a)added.splice(+b.dataset.a,1);thumbs()};
+function shrink(file){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);
+  im.onload=()=>{const k=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL("image/jpeg",.82))};
+  im.onerror=()=>rej(new Error(file.name+" okunamadı."));im.src=u})}
+async function addFiles(fl){
+  for(const f of fl){if(!f.type.startsWith("image/"))continue;if(added.length>=12)break;try{added.push(await shrink(f))}catch(e){say(e.message)}}
+  thumbs()}
+$("drop").onclick=()=>$("f").click();
+$("drop").onkeydown=e=>{if(e.key==="Enter"||e.key===" ")$("f").click()};
+$("f").onchange=e=>{addFiles(e.target.files);e.target.value=""};
+["dragover","dragenter"].forEach(n=>$("drop").addEventListener(n,e=>{e.preventDefault();$("drop").classList.add("over")}));
+["dragleave","drop"].forEach(n=>$("drop").addEventListener(n,e=>{e.preventDefault();$("drop").classList.remove("over")}));
+$("drop").addEventListener("drop",e=>addFiles(e.dataTransfer.files));
+$("save").onclick=async()=>{
+  if(!$("t").value.trim()){say("Proje adı yazın.");return}
+  const body={title:$("t").value,category:$("c").value,status:$("s").value,location:$("l").value,year:$("y").value,area:$("a").value,description:$("d").value,scope:$("sc").value.split("\n"),addImages:added,removeImages:[...removed]};
+  $("save").disabled=true;say("Kaydediliyor...",true);
+  try{await api(editing?"projects/"+editing.id:"projects",{method:editing?"PUT":"POST",body:JSON.stringify(body)});
+    const was=editing;reset();say(was?"Değişiklikler kaydedildi.":"Proje eklendi.",true);refresh()}
+  catch(e){say(e.message)}finally{$("save").disabled=false}
+};
+
+/* site içeriği */
+const get=(o,p)=>p.split(".").reduce((a,k)=>a&&a[k],o);
+const set=(o,p,v)=>{const k=p.split(".");const l=k.pop();k.reduce((a,x)=>a[x],o)[l]=v};
+const F=(p,label,kind="input",hint="")=>{const v=get(cont,p),val=Array.isArray(v)?v.join("\n"):v;
+  return `<div style="margin-bottom:16px"><label>${label}</label>${kind==="area"?`<textarea rows="3" data-p="${p}">${esc(val)}</textarea>`:`<input data-p="${p}" value="${esc(val)}">`}${hint?`<small class="h">${hint}</small>`:""}</div>`};
+function drawContent(){
+  $("hbox").innerHTML=`<h2>Ana sayfa girişi</h2>${F("hero.title","Ana başlık")}${F("hero.text","Alt metin","area")}<div class="fg"><div>${F("hero.cta1","1. düğme yazısı")}</div><div>${F("hero.cta2","2. düğme yazısı")}</div></div>
+   <h3>Hakkımızda</h3>${F("about.title","Başlık")}${F("about.p1","1. paragraf","area")}${F("about.p2","2. paragraf","area")}${F("about.principlesTitle","Kutu başlığı")}${F("about.principles","Çalışma prensipleri","area","Her satıra bir madde yazın.")}`;
+  $("cbox").innerHTML=`<h2>İletişim bilgileri</h2>${F("contact.title","Başlık")}${F("contact.text","Alt metin","area")}<div class="fg"><div>${F("contact.phone","Telefon")}</div><div>${F("contact.email1","E-posta 1")}</div><div>${F("contact.email2","E-posta 2","input","İstemezseniz boş bırakın.")}</div><div>${F("contact.instagram","Instagram adı")}</div></div>${F("contact.address","Adres","area")}${F("contact.mapUrl","Harita bağlantısı")}${F("contact.instagramUrl","Instagram bağlantısı")}`;
+  drawServices();drawRefs();
+}
+function drawServices(){
+  $("sbox").innerHTML=`<h2>Hizmetler</h2>${F("servicesTitle","Bölüm başlığı")}${F("servicesText","Bölüm alt metni","area")}<h3>Hizmet kartları</h3>`+
+  cont.services.map((v,i)=>`<div class="sv"><div class="row"><b>${i+1}. ${esc(v.title)||"Yeni hizmet"}</b><span style="display:flex;gap:6px"><button class="btn btn-ln btn-sm" data-mv="${i}:-1" ${i?"":"disabled"}>↑</button><button class="btn btn-ln btn-sm" data-mv="${i}:1" ${i<cont.services.length-1?"":"disabled"}>↓</button><button class="btn btn-del btn-sm" data-rm="${i}">Sil</button></span></div>
+   <div class="fg"><div><label>Başlık</label><input data-si="${i}" data-k="title" value="${esc(v.title)}"></div><div><label>Simge</label><select data-si="${i}" data-k="icon">${Object.keys(ICONS).map(k=>`<option value="${k}" ${v.icon===k?"selected":""}>${ICON_NAMES[k]||k}</option>`).join("")}</select></div>
+   <div class="full"><label>Kısa açıklama (kartta görünür)</label><textarea rows="2" data-si="${i}" data-k="text">${esc(v.text)}</textarea></div>
+   <div class="full"><label>Detay metni (karta tıklanınca açılır)</label><textarea rows="3" data-si="${i}" data-k="detail">${esc(v.detail)}</textarea></div>
+   <div class="full"><label>Kapsam maddeleri</label><textarea rows="4" data-si="${i}" data-k="items">${esc((v.items||[]).join("\n"))}</textarea><small class="h">Her satıra bir madde yazın.</small></div></div></div>`).join("")+
+  `<button class="btn btn-dark btn-sm" id="addsv">+ Yeni hizmet ekle</button>`;
+}
+function drawRefs(){
+  const R=cont.references;
+  $("rbox").innerHTML=`<h2>Referans kurumlar</h2>${F("refsTitle","Bölüm başlığı")}${F("refsText","Alt metin","area")}<h3>Kurumlar (${R.length})</h3><p style="color:var(--muted);font-size:14.5px;margin-bottom:12px">Logo yüklemezseniz kurum adı yazı olarak kayar. Şeffaf arka planlı PNG en iyi sonucu verir.</p>`+
+  R.map((r,i)=>`<div class="rr"><div class="lg">${r.logo?`<img src="/api/img/${r.logo}" alt="">`:"Logo yok"}</div><input data-ri="${i}" value="${esc(r.name)}" aria-label="Kurum adı"><span class="rb"><button class="btn btn-ln btn-sm" data-up="${i}">${r.logo?"Logoyu değiştir":"Logo yükle"}</button>${r.logo?`<button class="btn btn-ln btn-sm" data-rl="${i}">Logoyu kaldır</button>`:""}<button class="btn btn-ln btn-sm" data-rmv="${i}:-1" ${i?"":"disabled"}>↑</button><button class="btn btn-ln btn-sm" data-rmv="${i}:1" ${i<R.length-1?"":"disabled"}>↓</button><button class="btn btn-del btn-sm" data-rdel="${i}">Sil</button></span></div>`).join("")+
+  `<div class="acts"><button class="btn btn-dark btn-sm" id="addref">+ Kurum ekle</button></div>`;
+}
+let upIdx=-1;
+$("rbox").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;const d=b.dataset,R=cont.references;
+  if(b.id==="addref"){R.push({name:"Yeni kurum",logo:""});drawRefs();return}
+  if(d.up!==undefined){upIdx=+d.up;$("rfile").click()}
+  if(d.rl!==undefined){R[+d.rl].logo="";drawRefs()}
+  if(d.rdel!==undefined&&confirm("Bu kurum listeden silinsin mi?")){R.splice(+d.rdel,1);drawRefs()}
+  if(d.rmv){const [i,k]=d.rmv.split(":").map(Number);[R[i],R[i+k]]=[R[i+k],R[i]];drawRefs()}
+});
+function shrinkLogo(file){return new Promise((res,rej)=>{const im=new Image(),u=URL.createObjectURL(file);
+  im.onload=()=>{const k=Math.min(1,600/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);res(file.type==="image/jpeg"?c.toDataURL("image/jpeg",.9):c.toDataURL("image/png"))};
+  im.onerror=()=>rej(new Error("Görsel okunamadı."));im.src=u})}
+$("rfile").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f||upIdx<0)return;const m=$("cm");
+  m.className="msg ok";m.textContent="Logo yükleniyor...";
+  try{const data=await shrinkLogo(f);const r=await api("logo",{method:"POST",body:JSON.stringify({data})});
+    cont.references[upIdx].logo=r.id;drawRefs();m.textContent="Logo yüklendi. Sitede görünmesi için \"Değişiklikleri yayınla\"ya basın."}
+  catch(x){m.className="msg err";m.textContent=x.message}
+};
+document.addEventListener("input",e=>{
+  const t=e.target;if(!cont)return;
+  if(t.dataset.p){const v=get(cont,t.dataset.p);set(cont,t.dataset.p,Array.isArray(v)?t.value.split("\n").map(x=>x.trim()).filter(Boolean):t.value)}
+  if(t.dataset.ri){cont.references[+t.dataset.ri].name=t.value}
+  if(t.dataset.si){const s=cont.services[+t.dataset.si];if(t.dataset.k==="title"){const b=t.closest(".sv").querySelector(".row b");b.textContent=(+t.dataset.si+1)+". "+(t.value||"Yeni hizmet")}s[t.dataset.k]=t.dataset.k==="items"?t.value.split("\n").map(x=>x.trim()).filter(Boolean):t.value}
+});
+$("sbox").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.id==="addsv"){cont.services.push({icon:"proje",title:"Yeni hizmet",text:"",detail:"",items:[]});drawServices();return}
+  if(b.dataset.rm!==undefined){if(confirm("Bu hizmet silinsin mi?")){cont.services.splice(+b.dataset.rm,1);drawServices()}}
+  if(b.dataset.mv){const [i,d]=b.dataset.mv.split(":").map(Number),s=cont.services;[s[i],s[i+d]]=[s[i+d],s[i]];drawServices()}
+});
+$("savec").onclick=async()=>{
+  const m=$("cm");$("savec").disabled=true;m.className="msg ok";m.textContent="Yayınlanıyor...";
+  try{await api("content",{method:"PUT",body:JSON.stringify(cont)});m.textContent="Kaydedildi. Değişiklikler sitede yayında."}
+  catch(e){m.className="msg err";m.textContent=e.message}finally{$("savec").disabled=false}
+};
+</script>
+</body>
+</html>
